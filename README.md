@@ -9,7 +9,7 @@
 make gen-crt
 ```
 
-Для работы с https необходимо добавить сертификаты в систему, на linux:
+### Для работы с https необходимо добавить сертификаты в систему, на linux:
 ```shell
 sudo apt-get install -y ca-certificates
 sudo cp ca.crt /usr/local/share/ca-certificates
