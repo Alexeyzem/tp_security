@@ -1,0 +1,25 @@
+FROM golang:alpine AS build
+
+WORKDIR /proxy
+
+COPY go.mod .
+COPY go.sum .
+
+RUN go mod download
+RUN go mod vendor
+
+COPY . .
+
+RUN go build cmd/main.go
+
+FROM alpine:latest
+
+WORKDIR /proxy
+
+EXPOSE 8080
+
+COPY .env .
+
+COPY --from=build /proxy/main /proxy/main
+
+CMD ["./main"]
