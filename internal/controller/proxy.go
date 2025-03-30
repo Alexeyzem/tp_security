@@ -7,8 +7,12 @@ import (
 	"github.com/tp_security/internal/config"
 )
 
+type HttpSender interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type Proxy struct {
-	client *http.Client
+	client HttpSender
 }
 
 func NewProxy(cfg *config.Config) *Proxy {
