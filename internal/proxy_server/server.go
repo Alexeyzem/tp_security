@@ -8,6 +8,7 @@ import (
 
 	"github.com/tp_security/internal/config"
 	"github.com/tp_security/internal/controller"
+	"github.com/tp_security/internal/middleware"
 )
 
 func New(cfg *config.Config) (*http.Server, error) {
@@ -15,12 +16,18 @@ func New(cfg *config.Config) (*http.Server, error) {
 	if cfg.UseTLS {
 		tlsConfig = newTLSConfig(cfg)
 	}
+	cfg.TLSConfig = tlsConfig
+
+	handler, err := controller.NewProxy(cfg)
+	if err != nil {
+		return nil, err
+	}
 
 	return &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Port),
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
-		Handler:      controller.NewProxy(cfg),
+		Handler:      middleware.AccessLog(handler),
 		TLSConfig:    tlsConfig,
 	}, nil
 }
@@ -40,7 +47,7 @@ func Run(cfg *config.Config) error {
 
 	log.Printf("Starting proxy server at port:%s", cfg.Port)
 	if cfg.UseTLS {
-		return server.ListenAndServeTLS("", "")
+		return server.ListenAndServeTLS(cfg.CertFile, cfg.KeyFile)
 	}
 
 	return server.ListenAndServe()
