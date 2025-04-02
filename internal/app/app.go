@@ -9,7 +9,6 @@ import (
 )
 
 func Run(cfg *config.Config) error {
-
 	server := http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      middleware.AccessLog(handler.New()),

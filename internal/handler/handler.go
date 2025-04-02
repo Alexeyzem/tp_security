@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+const (
+	http1 = "HTTP/1.1\r\n"
+)
+
 type Handler struct{}
 
 func New() *Handler {
@@ -35,7 +39,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer targetConn.Close()
 
-	_, err = fmt.Fprintf(targetConn, "%s %s HTTP/1.1\r\n", r.Method, getPath(r))
+	_, err = fmt.Fprintf(targetConn, "%s %s %s", r.Method, getPath(r), http1)
 	if err != nil {
 		http.Error(w, "failed to write request", http.StatusBadGateway)
 		return
