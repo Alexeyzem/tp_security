@@ -1,10 +1,10 @@
 package main
 
 import (
+	"github.com/tp_security/internal/app"
 	"log"
 
 	"github.com/tp_security/internal/config"
-	"github.com/tp_security/internal/proxy_server"
 )
 
 func main() {
@@ -13,7 +13,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := proxy_server.Run(cfg); err != nil {
+	if err := app.Run(cfg); err != nil {
 		log.Fatal(err)
 	}
 }

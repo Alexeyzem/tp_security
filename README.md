@@ -16,7 +16,12 @@ sudo cp ca.crt /usr/local/share/ca-certificates
 sudo update-ca-certificates
 ```
 
-## Старт проекта
+## Старт проекта в докере
 ```shell
 make start
+```
+
+## Старт проекта локально вне докера
+```shell
+make run
 ```
