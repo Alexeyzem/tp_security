@@ -1,120 +1,76 @@
 package handler
 
 import (
-	"bufio"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
-	"io"
-	"log"
-	"net"
 	"net/http"
-	"strings"
-	"time"
+	"os"
+
+	"github.com/tp_security/internal/config"
 )
 
 const (
-	http1 = "HTTP/1.1\r\n"
+	http1          = "HTTP/1.1\r\n"
+	successConnect = "HTTP/1.0 200 Connection established\r\n\r\n"
+	httpPort       = "80"
+	httpsPort      = "443"
 )
 
-type Handler struct{}
+type Handler struct {
+	caCert     *x509.Certificate
+	caKey      interface{}
+	caCertPool *x509.CertPool
+}
 
-func New() *Handler {
-	return &Handler{}
+func New(cfg *config.Config) (*Handler, error) {
+	handler := &Handler{}
+	err := handler.loadCA(cfg.CertFile, cfg.KeyFile)
+
+	return handler, err
+}
+
+func (h *Handler) loadCA(certFile, keyFile string) error {
+	caCertPEM, err := os.ReadFile(certFile)
+	if err != nil {
+		return fmt.Errorf("reading CA cert: %w", err)
+	}
+
+	block, _ := pem.Decode(caCertPEM)
+	caCert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return fmt.Errorf("parsing CA cert: %w", err)
+	}
+	h.caCert = caCert
+
+	caKeyPEM, err := os.ReadFile(keyFile)
+	if err != nil {
+		return fmt.Errorf("reading CA key: %w", err)
+	}
+
+	block, _ = pem.Decode(caKeyPEM)
+	caKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		caKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
+		if err != nil {
+			return fmt.Errorf("parsing CA key: %w", err)
+		}
+	}
+	h.caKey = caKey
+
+	caCertPool := x509.NewCertPool()
+	caCertPool.AddCert(caCert)
+
+	h.caCertPool = caCertPool
+
+	return nil
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	r.Header.Del("Proxy-Connection")
-
-	targetHost, err := getHost(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-
+	if r.Method == http.MethodConnect {
+		h.handleHTTPS(w, r)
 		return
 	}
 
-	targetConn, err := net.DialTimeout("tcp", targetHost, 5*time.Second)
-	if err != nil {
-		http.Error(w, "failed to connect to target", http.StatusBadGateway)
-
-		return
-	}
-	defer targetConn.Close()
-
-	_, err = fmt.Fprintf(targetConn, "%s %s %s", r.Method, getPath(r), http1)
-	if err != nil {
-		http.Error(w, "failed to write request", http.StatusBadGateway)
-		return
-	}
-
-	r.Header.Set("Host", strings.Split(targetHost, ":")[0])
-	err = r.Header.Write(targetConn)
-	if err != nil {
-		http.Error(w, "failed to write headers", http.StatusBadGateway)
-
-		return
-	}
-
-	_, err = targetConn.Write([]byte("\r\n"))
-	if err != nil {
-		http.Error(w, "failed to write headers terminator", http.StatusBadGateway)
-
-		return
-	}
-
-	if r.Body != nil {
-		_, err = io.Copy(targetConn, r.Body)
-		if err != nil {
-			http.Error(w, "failed to write body", http.StatusBadGateway)
-
-			return
-		}
-	}
-
-	resp, err := http.ReadResponse(bufio.NewReader(targetConn), r)
-	if err != nil {
-		http.Error(w, "failed to read response", http.StatusBadGateway)
-
-		return
-	}
-	defer resp.Body.Close()
-
-	for k, vv := range resp.Header {
-		for _, v := range vv {
-			w.Header().Add(k, v)
-		}
-	}
-
-	w.WriteHeader(resp.StatusCode)
-
-	_, err = io.Copy(w, resp.Body)
-	if err != nil {
-		log.Println("error copying response body:", err)
-	}
-}
-
-func getHost(r *http.Request) (string, error) {
-	targetHost := r.URL.Host
-	if targetHost == "" {
-		targetHost = r.Host
-	}
-	if targetHost == "" {
-		return "", fmt.Errorf("missing target host")
-	}
-
-	if !strings.Contains(targetHost, ":") {
-		targetHost += ":80" //default for http
-	}
-
-	return targetHost, nil
-}
-
-func getPath(r *http.Request) string {
-	path := r.URL.Path
-	if path == "" {
-		path = "/"
-	}
-	if r.URL.RawQuery != "" {
-		path += "?" + r.URL.RawQuery
-	}
-
-	return path
+	h.handleHTTP(w, r)
 }

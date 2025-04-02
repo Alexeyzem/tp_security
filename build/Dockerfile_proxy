@@ -19,6 +19,8 @@ WORKDIR /proxy
 EXPOSE 8080
 
 COPY .env .
+COPY ca.crt .
+COPY ca.key .
 
 COPY --from=build /proxy/main /proxy/main
 

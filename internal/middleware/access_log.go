@@ -1,15 +1,25 @@
 package middleware
 
 import (
+	"bufio"
 	"log"
+	"net"
 	"net/http"
 	"time"
 )
 
 type loggingResponseWriter struct {
 	http.ResponseWriter
-	status int
-	size   int
+	hijacker http.Hijacker
+	status   int
+	size     int
+}
+
+func (w *loggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if w.hijacker == nil {
+		return nil, nil, http.ErrNotSupported
+	}
+	return w.hijacker.Hijack()
 }
 
 func (w *loggingResponseWriter) WriteHeader(status int) {
@@ -33,6 +43,11 @@ func AccessLog(handler http.Handler) http.Handler {
 			start := time.Now()
 
 			lrw := &loggingResponseWriter{ResponseWriter: w, status: http.StatusOK}
+
+			if hj, ok := w.(http.Hijacker); ok {
+				lrw.hijacker = hj
+			}
+
 			handler.ServeHTTP(lrw, r)
 			duration := time.Since(start)
 			log.Printf(

@@ -12,7 +12,6 @@ import (
 type Config struct {
 	Host         string
 	Port         string
-	UseTLS       bool
 	CertFile     string
 	KeyFile      string
 	ReadTimeout  time.Duration
@@ -28,7 +27,6 @@ func New() (*Config, error) {
 	return &Config{
 		Host:         "127.0.0.1",
 		Port:         os.Getenv("PORT"),
-		UseTLS:       os.Getenv("USE_TLS") == "true",
 		CertFile:     os.Getenv("CERT_FILE"),
 		KeyFile:      os.Getenv("KEY_FILE"),
 		ReadTimeout:  getDurationEnv("READ_TIMEOUT", 5),

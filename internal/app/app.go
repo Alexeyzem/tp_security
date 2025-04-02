@@ -1,6 +1,7 @@
 package app
 
 import (
+	"crypto/tls"
 	"github.com/tp_security/internal/config"
 	"github.com/tp_security/internal/handler"
 	"github.com/tp_security/internal/middleware"
@@ -9,14 +10,20 @@ import (
 )
 
 func Run(cfg *config.Config) error {
-	server := http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      middleware.AccessLog(handler.New()),
-		ReadTimeout:  cfg.ReadTimeout,
-		WriteTimeout: cfg.WriteTimeout,
+	handleFunc, err := handler.New(cfg)
+	if err != nil {
+		return err
 	}
 
-	log.Printf("Starting HTTP proxy server on :%s", cfg.Port)
+	server := http.Server{
+		Addr:         ":" + cfg.Port,
+		Handler:      middleware.AccessLog(handleFunc),
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
+	}
+
+	log.Printf("Starting HTTP/HTTPS proxy server on :%s", cfg.Port)
 	if err := server.ListenAndServe(); err != nil {
 		return err
 	}
