@@ -47,7 +47,7 @@ func New() (*Config, error) {
 			Host:    os.Getenv("DB_HOST"),
 			Port:    os.Getenv("DB_PORT"),
 			User:    os.Getenv("DB_USER"),
-			Pass:    os.Getenv("DB_PASS"),
+			Pass:    os.Getenv("DB_PASSWORD"),
 			Name:    os.Getenv("DB_NAME"),
 			SSLMode: os.Getenv("DB_SSLMODE"),
 		},

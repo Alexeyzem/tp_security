@@ -17,7 +17,7 @@ type controller interface {
 
 func NewApi(cfg *config.Config, contr controller) http.Handler {
 	rout := mux.NewRouter()
-	rout.HandleFunc("/api/request/{id}", contr.GetOne).Methods("GET")
+	rout.HandleFunc("/api/requests/{id}", contr.GetOne).Methods("GET")
 	rout.HandleFunc("/api/requests", contr.Get).Methods("GET")
 	rout.HandleFunc("/api/repeat/{id}", contr.Repeat).Methods("GET")
 	rout.HandleFunc("/api/scan/{id}", contr.Scan).Methods("GET")

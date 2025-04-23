@@ -5,7 +5,6 @@ services:
     build:
       dockerfile: build/Dockerfile_proxy
       context: .
-    restart: always
     ports:
       - "8080:8080"
     depends_on:
@@ -13,7 +12,13 @@ services:
 
   api:
     build:
-      dockerfile: build/
+      dockerfile: build/Dockerfile_api
+      context: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - proxy
 
   db:
     image: postgres:latest

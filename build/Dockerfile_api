@@ -19,6 +19,7 @@ WORKDIR /api
 EXPOSE 8000
 
 COPY .env .
+COPY dicc.txt .
 
 COPY --from=build /api/main /api/main
 

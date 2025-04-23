@@ -77,6 +77,9 @@ func (h *Handler) handleHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Println("error copying response body:", err)
 	}
 
+	r.Host = targetHost
+	r.URL.Host = targetHost
+	r.URL.Path = getPath(r)
 	saveReq := parseRequest(r)
 	saveResp := parseResponse(resp)
 
@@ -90,6 +93,7 @@ func parseRequest(r *http.Request) string {
 	req := &core.Request{
 		Method:    r.Method,
 		Path:      r.URL.Path,
+		Host:      r.URL.Host,
 		Headers:   toMapStringSlice(r.Header),
 		GetParams: toMapStringSlice(r.URL.Query()),
 	}

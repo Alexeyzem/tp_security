@@ -1,15 +1,17 @@
 package app
 
 import (
+	"bufio"
 	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
-	"github.com/tp_security/controller"
 	"github.com/tp_security/internal/config"
+	"github.com/tp_security/internal/controller"
 	"github.com/tp_security/internal/handler"
 	"github.com/tp_security/internal/middleware"
 	"github.com/tp_security/internal/repository"
@@ -71,8 +73,19 @@ func RunApi(cfg *config.Config) error {
 		return err
 	}
 
+	file, err := os.Open("dicc.txt")
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	var paths []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		paths = append(paths, scanner.Text())
+	}
+
 	repo := repository.New(db)
-	contr := controller.New(repo)
+	contr := controller.New(repo, paths)
 
 	handleFunc := handler.NewApi(cfg, contr)
 
@@ -108,6 +121,12 @@ func startPostgres(connStr string) (*sql.DB, error) {
 		i++
 		time.Sleep(1 * time.Second)
 		log.Printf("try ping postgresql: %v", i)
+	}
+
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS data (id SERIAL PRIMARY KEY, request JSON, response JSON)")
+	if err != nil {
+		log.Printf(err.Error())
+		return nil, fmt.Errorf("create table: %w", err)
 	}
 
 	return db, nil
