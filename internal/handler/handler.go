@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -17,14 +18,21 @@ const (
 	httpsPort      = "443"
 )
 
+type RepositoryI interface {
+	Save(ctx context.Context, req, resp string) error
+}
+
 type Handler struct {
 	caCert     *x509.Certificate
 	caKey      interface{}
 	caCertPool *x509.CertPool
+	repo       RepositoryI
 }
 
-func New(cfg *config.Config) (*Handler, error) {
-	handler := &Handler{}
+func New(cfg *config.Config, repo RepositoryI) (*Handler, error) {
+	handler := &Handler{
+		repo: repo,
+	}
 	err := handler.loadCA(cfg.CertFile, cfg.KeyFile)
 
 	return handler, err

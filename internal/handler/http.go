@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -9,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/tp_security/internal/core"
 )
 
 func (h *Handler) handleHTTP(w http.ResponseWriter, r *http.Request) {
@@ -73,4 +76,74 @@ func (h *Handler) handleHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println("error copying response body:", err)
 	}
+
+	saveReq := parseRequest(r)
+	saveResp := parseResponse(resp)
+
+	err = h.repo.Save(r.Context(), saveReq, saveResp)
+	if err != nil {
+		log.Println("failed to save request:", err)
+	}
+}
+
+func parseRequest(r *http.Request) string {
+	req := &core.Request{
+		Method:    r.Method,
+		Path:      r.URL.Path,
+		Headers:   toMapStringSlice(r.Header),
+		GetParams: toMapStringSlice(r.URL.Query()),
+	}
+
+	cookies := r.Cookies()
+	for _, cookie := range cookies {
+		req.Cookies[cookie.Name] = cookie.Value
+	}
+
+	err := r.ParseForm()
+	if err != nil {
+		log.Println("error parsing form:", err)
+	} else {
+		params := r.Form
+		req.PostParams = toMapStringSlice(params)
+	}
+
+	res, err := json.Marshal(req)
+	if err != nil {
+		log.Println("error marshaling request:", err)
+	}
+
+	return string(res)
+}
+
+func parseResponse(r *http.Response) string {
+	resp := &core.Response{
+		Code:    r.StatusCode,
+		Headers: toMapStringSlice(r.Header),
+		Message: r.Status,
+	}
+
+	var body []byte
+	_, err := r.Body.Read(body)
+	if err != nil {
+		log.Println("error reading response body:", err)
+	}
+	resp.Body = string(body)
+
+	res, err := json.Marshal(resp)
+	if err != nil {
+		log.Println("error marshaling response:", err)
+	}
+
+	return string(res)
+}
+
+func toMapStringSlice[IN ~map[string][]string](in IN) map[string][]string {
+	res := make(map[string][]string, len(in))
+	for k, v := range in {
+		for _, value := range v {
+			res[k] = append(res[k], value)
+		}
+	}
+
+	return res
 }

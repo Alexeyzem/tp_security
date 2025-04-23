@@ -11,6 +11,10 @@ services:
     depends_on:
       - db
 
+  api:
+    build:
+      dockerfile: build/
+
   db:
     image: postgres:latest
     ports:

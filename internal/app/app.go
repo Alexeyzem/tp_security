@@ -2,15 +2,40 @@ package app
 
 import (
 	"crypto/tls"
+	"database/sql"
+	"fmt"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/tp_security/controller"
 	"github.com/tp_security/internal/config"
 	"github.com/tp_security/internal/handler"
 	"github.com/tp_security/internal/middleware"
-	"log"
-	"net/http"
+	"github.com/tp_security/internal/repository"
+
+	_ "github.com/jackc/pgx"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func Run(cfg *config.Config) error {
-	handleFunc, err := handler.New(cfg)
+	connStr := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		cfg.DB.Host,
+		cfg.DB.Port,
+		cfg.DB.User,
+		cfg.DB.Pass,
+		cfg.DB.Name,
+		cfg.DB.SSLMode,
+	)
+	db, err := startPostgres(connStr)
+	if err != nil {
+		return err
+	}
+
+	repo := repository.New(db)
+
+	handleFunc, err := handler.New(cfg, repo)
 	if err != nil {
 		return err
 	}
@@ -29,4 +54,61 @@ func Run(cfg *config.Config) error {
 	}
 
 	return nil
+}
+
+func RunApi(cfg *config.Config) error {
+	connStr := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		cfg.DB.Host,
+		cfg.DB.Port,
+		cfg.DB.User,
+		cfg.DB.Pass,
+		cfg.DB.Name,
+		cfg.DB.SSLMode,
+	)
+	db, err := startPostgres(connStr)
+	if err != nil {
+		return err
+	}
+
+	repo := repository.New(db)
+	contr := controller.New(repo)
+
+	handleFunc := handler.NewApi(cfg, contr)
+
+	server := http.Server{
+		Addr:         ":" + cfg.PortAPI,
+		Handler:      middleware.AccessLog(handleFunc),
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+	}
+
+	log.Printf("Starting api server on :%s", cfg.PortAPI)
+	if err := server.ListenAndServe(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func startPostgres(connStr string) (*sql.DB, error) {
+	db, err := sql.Open("pgx", connStr)
+	if err != nil {
+		return nil, fmt.Errorf("postgres connect: %w", err)
+	}
+	db.SetMaxOpenConns(10)
+
+	retrying := 10
+	i := 1
+	log.Printf("try ping postgresql:%v", i)
+	for err = db.Ping(); err != nil; err = db.Ping() {
+		if i >= retrying {
+			return nil, fmt.Errorf("postgres connect: %w", err)
+		}
+		i++
+		time.Sleep(1 * time.Second)
+		log.Printf("try ping postgresql: %v", i)
+	}
+
+	return db, nil
 }
